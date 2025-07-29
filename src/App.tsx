@@ -9,8 +9,19 @@ interface InvoiceItem {
 }
 
 const App: React.FC = () => {
-    const [issueDate, setIssueDate] = useState("2050年5月23日");
-    const [dueDate, setDueDate] = useState("2050年6月30日");
+    const getFormattedDate = (date: Date) => {
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        return `${year}年${month}月${day}日`;
+    };
+
+    const today = new Date();
+    const thirtyDaysLater = new Date();
+    thirtyDaysLater.setDate(today.getDate() + 30);
+
+    const [issueDate, setIssueDate] = useState(getFormattedDate(today));
+    const [dueDate, setDueDate] = useState(getFormattedDate(thirtyDaysLater));
     const [recipient, setRecipient] = useState("宛名 様");
     const [senderName, setSenderName] = useState("差出人名");
     const [senderPhone, setSenderPhone] = useState("01-2345-6789");
