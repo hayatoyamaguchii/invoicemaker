@@ -54,30 +54,43 @@ const App: React.FC = () => {
     const total = subtotal + tax;
 
     const downloadPNG = () => {
-        if (invoiceRef.current) {
-            html2canvas(invoiceRef.current).then((canvas) => {
-                const link = document.createElement("a");
-                link.href = canvas.toDataURL("image/png");
-                link.download = "invoice.png";
-                link.click();
-            });
+        const invoiceElement = invoiceRef.current;
+        if (invoiceElement) {
+            invoiceElement.classList.remove('shadow-lg');
+
+            html2canvas(invoiceElement, { backgroundColor: "#ffffff" })
+                .then((canvas) => {
+                    const link = document.createElement("a");
+                    link.href = canvas.toDataURL("image/png");
+                    link.download = "invoice.png";
+                    link.click();
+                })
+                .finally(() => {
+                    invoiceElement.classList.add('shadow-lg');
+                });
         }
     };
 
     const downloadPDF = () => {
-        if (invoiceRef.current) {
-            html2canvas(invoiceRef.current, { scale: 2 }).then((canvas) => {
-                const imgData = canvas.toDataURL("image/png");
-                const pdf = new jsPDF("p", "mm", "a4");
-                const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = pdf.internal.pageSize.getHeight();
-                const canvasWidth = canvas.width;
-                const canvasHeight = canvas.height;
-                const ratio = canvasWidth / canvasHeight;
-                const height = pdfWidth / ratio;
-                pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, height);
-                pdf.save("invoice.pdf");
-            });
+        const invoiceElement = invoiceRef.current;
+        if (invoiceElement) {
+            invoiceElement.classList.remove('shadow-lg');
+
+            html2canvas(invoiceElement, { scale: 2, backgroundColor: "#ffffff" })
+                .then((canvas) => {
+                    const imgData = canvas.toDataURL("image/png");
+                    const pdf = new jsPDF("p", "mm", "a4");
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const canvasWidth = canvas.width;
+                    const canvasHeight = canvas.height;
+                    const ratio = canvasWidth / canvasHeight;
+                    const pdfHeight = pdfWidth / ratio;
+                    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+                    pdf.save("invoice.pdf");
+                })
+                .finally(() => {
+                    invoiceElement.classList.add('shadow-lg');
+                });
         }
     };
 
