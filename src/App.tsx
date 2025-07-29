@@ -1,6 +1,7 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import InvoiceOutput from "./InvoiceOutput";
 
 interface InvoiceItem {
     name: string;
@@ -34,6 +35,36 @@ const App: React.FC = () => {
     const [notes, setNotes] = useState("");
 
     const invoiceRef = useRef<HTMLDivElement>(null);
+    const [previewScale, setPreviewScale] = useState(1);
+
+    useEffect(() => {
+        const calculateScale = () => {
+            if (invoiceRef.current) {
+                const invoiceElement = invoiceRef.current;
+                const parentContainer = invoiceElement.parentElement;
+
+                if (!parentContainer) return;
+
+                // 親コンテナの利用可能な幅からパディングを引く
+                const PADDING_PX = 32; // p-8 は 32px のパディング
+                const availableWidthPx = parentContainer.clientWidth - (PADDING_PX * 2);
+
+                // A4用紙の幅をピクセルで近似 (210mm * 96dpi / 25.4mm/inch)
+                const A4_WIDTH_PX_AT_96DPI = 793.7;
+
+                if (availableWidthPx < A4_WIDTH_PX_AT_96DPI) {
+                    const scale = availableWidthPx / A4_WIDTH_PX_AT_96DPI;
+                    setPreviewScale(scale);
+                } else {
+                    setPreviewScale(1);
+                }
+            }
+        };
+
+        calculateScale(); // 初期計算
+        window.addEventListener('resize', calculateScale);
+        return () => window.removeEventListener('resize', calculateScale);
+    }, []);
 
     const handleItemChange = (
         index: number,
@@ -65,17 +96,15 @@ const App: React.FC = () => {
     const downloadPNG = () => {
         const invoiceElement = invoiceRef.current;
         if (invoiceElement) {
-            invoiceElement.classList.remove("shadow-lg");
-
-            html2canvas(invoiceElement, { backgroundColor: "#ffffff" })
+            html2canvas(invoiceElement, {
+                backgroundColor: "#ffffff",
+                scale: 3, // 高解像度でキャプチャ
+            })
                 .then((canvas) => {
                     const link = document.createElement("a");
                     link.href = canvas.toDataURL("image/png");
                     link.download = "invoice.png";
                     link.click();
-                })
-                .finally(() => {
-                    invoiceElement.classList.add("shadow-lg");
                 });
         }
     };
@@ -83,32 +112,49 @@ const App: React.FC = () => {
     const downloadPDF = () => {
         const invoiceElement = invoiceRef.current;
         if (invoiceElement) {
-            invoiceElement.classList.remove("shadow-lg");
-
             html2canvas(invoiceElement, {
-                scale: 2,
+                scale: 3, // 高解像度でキャプチャ
                 backgroundColor: "#ffffff",
             })
                 .then((canvas) => {
                     const imgData = canvas.toDataURL("image/png");
                     const pdf = new jsPDF("p", "mm", "a4");
+
                     const pdfWidth = pdf.internal.pageSize.getWidth();
-                    const canvasWidth = canvas.width;
-                    const canvasHeight = canvas.height;
-                    const ratio = canvasWidth / canvasHeight;
-                    const pdfHeight = pdfWidth / ratio;
-                    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+                    const pdfHeight = pdf.internal.pageSize.getHeight();
+
+                    const imgWidth = canvas.width;
+                    const imgHeight = canvas.height;
+
+                    const imgAspectRatio = imgWidth / imgHeight;
+                    const pdfAspectRatio = pdfWidth / pdfHeight;
+
+                    let finalImgWidth;
+                    let finalImgHeight;
+
+                    if (imgAspectRatio > pdfAspectRatio) {
+                        // 画像がPDFページより横長の場合、幅に合わせて調整
+                        finalImgWidth = pdfWidth;
+                        finalImgHeight = pdfWidth / imgAspectRatio;
+                    } else {
+                        // 画像がPDFページより縦長の場合、高さに合わせて調整
+                        finalImgHeight = pdfHeight;
+                        finalImgWidth = pdfHeight * imgAspectRatio;
+                    }
+
+                    // 画像を中央に配置
+                    const xOffset = (pdfWidth - finalImgWidth) / 2;
+                    const yOffset = (pdfHeight - finalImgHeight) / 2;
+
+                    pdf.addImage(imgData, "PNG", xOffset, yOffset, finalImgWidth, finalImgHeight);
                     pdf.save("invoice.pdf");
-                })
-                .finally(() => {
-                    invoiceElement.classList.add("shadow-lg");
                 });
         }
     };
 
     return (
-        <div className="flex h-screen bg-custom-gray-200 text-custom-gray-800">
-            <div className="w-1/2 p-8 overflow-y-auto bg-custom-white">
+        <div className="flex flex-col lg:flex-row h-screen bg-custom-gray-200 text-custom-gray-800">
+            <div className="w-full lg:w-1/2 p-8 overflow-y-auto bg-custom-white">
                 <h2 className="text-2xl font-bold mb-6 text-custom-primary">
                     入力フォーム
                 </h2>
@@ -278,107 +324,32 @@ const App: React.FC = () => {
                     </button>
                 </div>
             </div>
-            <div className="w-1/2 p-8 bg-custom-gray-100 flex justify-center items-start overflow-y-auto">
+            <div className="w-full lg:w-1/2 p-8 bg-custom-gray-100 flex justify-center items-start overflow-y-auto overflow-x-hidden">
                 <div
                     ref={invoiceRef}
-                    className="w-[210mm] h-[297mm] p-12 bg-custom-white shadow-lg text-custom-gray-800"
-                    style={{ fontFamily: "'Noto Sans JP', sans-serif" }}
+                    style={{
+                        transform: `scale(${previewScale})`,
+                        transformOrigin: 'top center',
+                        width: '210mm',
+                        height: '297mm',
+                        margin: previewScale < 1 ? '0 auto' : '0',
+                    }}
                 >
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <h1 className="text-3xl font-bold text-custom-primary">
-                                請求書
-                            </h1>
-                            <p className="mt-4">{recipient}</p>
-                        </div>
-                        <div className="text-right">
-                            <p>発行日: {issueDate}</p>
-                            <p>支払期限: {dueDate}</p>
-                            <div className="mt-4">
-                                <p className="font-bold text-custom-primary">
-                                    {senderName}
-                                </p>
-                                <p>{senderAddress}</p>
-                                <p>Tel: {senderPhone}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mt-12">
-                        <table className="w-full text-left">
-                            <thead>
-                                <tr>
-                                    <th className="py-2 border-b-2 border-custom-gray-300 text-custom-primary">
-                                        品名
-                                    </th>
-                                    <th className="py-2 border-b-2 border-custom-gray-300 text-right text-custom-primary">
-                                        数量
-                                    </th>
-                                    <th className="py-2 border-b-2 border-custom-gray-300 text-right text-custom-primary">
-                                        単価
-                                    </th>
-                                    <th className="py-2 border-b-2 border-custom-gray-300 text-right text-custom-primary">
-                                        金額
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {items.map((item, index) => (
-                                    <tr key={index}>
-                                        <td className="py-2 border-b border-custom-gray-200">
-                                            {item.name}
-                                        </td>
-                                        <td className="py-2 border-b border-custom-gray-200 text-right">
-                                            {item.quantity || ""}
-                                        </td>
-                                        <td className="py-2 border-b border-custom-gray-200 text-right">
-                                            {item.price
-                                                ? `¥${item.price.toLocaleString()}`
-                                                : ""}
-                                        </td>
-                                        <td className="py-2 border-b border-custom-gray-200 text-right">
-                                            {item.quantity * item.price
-                                                ? `¥${(
-                                                      item.quantity * item.price
-                                                  ).toLocaleString()}`
-                                                : ""}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div className="mt-8 flex justify-end">
-                        <div className="w-1/3">
-                            <div className="flex justify-between">
-                                <p>小計</p>
-                                <p>¥{subtotal.toLocaleString()}</p>
-                            </div>
-                            <div className="flex justify-between mt-2">
-                                <p>消費税 ({taxRate}%)</p>
-                                <p>¥{tax.toLocaleString()}</p>
-                            </div>
-                            <div className="flex justify-between mt-4 font-bold text-lg border-t-2 pt-2 border-custom-primary text-custom-primary">
-                                <p>合計</p>
-                                <p>¥{total.toLocaleString()}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mt-12">
-                        <h3 className="font-bold border-b-2 pb-1 border-custom-primary text-custom-primary">
-                            お振込先
-                        </h3>
-                        <p className="mt-2 whitespace-pre-wrap">{bankInfo}</p>
-                    </div>
-
-                    <div className="mt-8">
-                        <h3 className="font-bold border-b-2 pb-1 border-custom-primary text-custom-primary">
-                            備考
-                        </h3>
-                        <p className="mt-2 whitespace-pre-wrap">{notes}</p>
-                    </div>
+                    <InvoiceOutput
+                        issueDate={issueDate}
+                        dueDate={dueDate}
+                        recipient={recipient}
+                        senderName={senderName}
+                        senderPhone={senderPhone}
+                        senderAddress={senderAddress}
+                        items={items}
+                        taxRate={taxRate}
+                        bankInfo={bankInfo}
+                        notes={notes}
+                        subtotal={subtotal}
+                        tax={tax}
+                        total={total}
+                    />
                 </div>
             </div>
         </div>
