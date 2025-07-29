@@ -11,12 +11,10 @@ interface InvoiceItem {
 const App: React.FC = () => {
     const [issueDate, setIssueDate] = useState("2050年5月23日");
     const [dueDate, setDueDate] = useState("2050年6月30日");
-    const [recipient, setRecipient] = useState("ARKグラフィック 小原 結菜 様");
-    const [senderName, setSenderName] = useState("KOTO Creative");
+    const [recipient, setRecipient] = useState("宛名 様");
+    const [senderName, setSenderName] = useState("差出人名");
     const [senderPhone, setSenderPhone] = useState("01-2345-6789");
-    const [senderAddress, setSenderAddress] = useState(
-        "〒123-4567 高田市大通り1丁目2-3 高田スクエアガーデン20階"
-    );
+    const [senderAddress, setSenderAddress] = useState("〒123-4567 ");
     const [items, setItems] = useState<InvoiceItem[]>(
         Array(10).fill({ name: "", quantity: 0, price: 0 })
     );
@@ -56,7 +54,7 @@ const App: React.FC = () => {
     const downloadPNG = () => {
         const invoiceElement = invoiceRef.current;
         if (invoiceElement) {
-            invoiceElement.classList.remove('shadow-lg');
+            invoiceElement.classList.remove("shadow-lg");
 
             html2canvas(invoiceElement, { backgroundColor: "#ffffff" })
                 .then((canvas) => {
@@ -66,7 +64,7 @@ const App: React.FC = () => {
                     link.click();
                 })
                 .finally(() => {
-                    invoiceElement.classList.add('shadow-lg');
+                    invoiceElement.classList.add("shadow-lg");
                 });
         }
     };
@@ -74,9 +72,12 @@ const App: React.FC = () => {
     const downloadPDF = () => {
         const invoiceElement = invoiceRef.current;
         if (invoiceElement) {
-            invoiceElement.classList.remove('shadow-lg');
+            invoiceElement.classList.remove("shadow-lg");
 
-            html2canvas(invoiceElement, { scale: 2, backgroundColor: "#ffffff" })
+            html2canvas(invoiceElement, {
+                scale: 2,
+                backgroundColor: "#ffffff",
+            })
                 .then((canvas) => {
                     const imgData = canvas.toDataURL("image/png");
                     const pdf = new jsPDF("p", "mm", "a4");
@@ -89,7 +90,7 @@ const App: React.FC = () => {
                     pdf.save("invoice.pdf");
                 })
                 .finally(() => {
-                    invoiceElement.classList.add('shadow-lg');
+                    invoiceElement.classList.add("shadow-lg");
                 });
         }
     };
